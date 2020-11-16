@@ -6,11 +6,9 @@ namespace ConsoleApp
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Types in this assembly:");
-            foreach (Type t in typeof(Program).Assembly.GetTypes())
-            {
-                Console.WriteLine(t.FullName);
-            }
+            var externalSystemService = new ExternalSystemService();
+            new SomeService(externalSystemService)
+                .AddUsingExternalService(1, 3);
         }
     }
 }

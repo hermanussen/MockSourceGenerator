@@ -5,10 +5,4 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\SourceGenerator\SourceGenerator.csproj" 
-                      ReferenceOutputAssembly="false"
-                      OutputItemType="Analyzer" />
-  </ItemGroup>
-
 </Project>

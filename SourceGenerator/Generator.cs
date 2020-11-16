@@ -1,4 +1,5 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using System;
+using Microsoft.CodeAnalysis;
 
 namespace SourceGenerator
 {
@@ -11,11 +12,31 @@ namespace SourceGenerator
 
         public void Execute(GeneratorExecutionContext context)
         {
-            var source = "class Foo { }";
-
-            if (source != null)
+            try
             {
-                context.AddSource("generated.cs", source);
+                var source = @"using System;
+using ConsoleApp;
+
+public class IExternalSystemServiceMock : IExternalSystemService
+{
+    public Func<int,int,int> MockAdd { get; set; }
+    public int Add(int operand1, int operand2)
+    {
+        if (MockAdd == null)
+        {
+            throw new NotImplementedException(""Method was called, but no mock implementation was provided"");
+        }
+
+        return MockAdd(operand1, operand2);
+    }
+}";
+
+                context.AddSource("GeneratedMocks.gen.cs", source);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
             }
         }
     }
