@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace ConsoleApp
+﻿namespace ExampleApp
 {
     class Program
     {

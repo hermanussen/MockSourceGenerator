@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
+using System.IO;
 
-namespace ConsoleApp
+namespace ExampleApp
 {
     public class ExternalSystemService : IExternalSystemService
     {
