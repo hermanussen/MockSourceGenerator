@@ -4,10 +4,24 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>9.0</LangVersion>
     <PackageId>MockSourceGenerator</PackageId>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <Authors>Robin Hermanussen</Authors>
     <Company>N/A</Company>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Description>
+      A C# mocking library that generates mocks at compile-time using a source generator.
+    </Description>
+    <PackBuildOutput>true</PackBuildOutput>
+    <Copyright>Copyright 2020 - Robin Hermanussen</Copyright>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>dotnet</PackageTags>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <GenerateRepositoryUrlAttribute>true</GenerateRepositoryUrlAttribute>
+    <PackOnBuild>true</PackOnBuild>
+    <PackFolder>analyzers\cs</PackFolder>
+    <DebugType>embedded</DebugType>
+    <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,6 +30,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="3.8.0" />
+    <PackageReference Include="NuGetizer" Version="0.4.11" />
   </ItemGroup>
 
 </Project>
