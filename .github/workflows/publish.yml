@@ -17,6 +17,9 @@ jobs:
         with:
           dotnet-version: 5.0.100
 
+      - name: Run tests
+        run: dotnet test
+
       # Publish
       - name: publish on version change
         id: publish_nuget

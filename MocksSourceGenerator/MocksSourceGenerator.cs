@@ -64,16 +64,19 @@ namespace MocksSourceGenerator
                     usings.Add($"using {targetTypeSymbol.ContainingNamespace.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)};");
 
                     var targetSymbolMembersSources = GetMemberSources(targetTypeSymbol, candidate);
-                    var targetSymbolPropertiesSources = GetPropertiesSources(targetTypeSymbol, candidate);
+                    var targetSymbolPropertiesSources = GetPropertiesSources(targetTypeSymbol);
 
+#pragma warning disable CA1308 // Normalize strings to uppercase
                     string mockSource = $@"
 namespace {namespaceName}
 {{
     {Enum.GetName(typeof(Accessibility), targetTypeSymbol.DeclaredAccessibility)?.ToLowerInvariant()} class {candidate.TypeName} : {targetTypeName}
-    {{{string.Join("\r\n", targetSymbolPropertiesSources)}
+    {{
+{string.Join("\r\n", targetSymbolPropertiesSources)}
 {string.Join("\r\n", targetSymbolMembersSources)}
     }}
 }}";
+#pragma warning restore CA1308 // Normalize strings to uppercase
 
                     mockSources.Add(mockSource);
                     generatedTypes.Add(fullMockTypeName, targetTypeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
@@ -93,7 +96,7 @@ namespace {namespaceName}
             }
         }
 
-        private static IEnumerable<string> GetPropertiesSources(ITypeSymbol targetTypeSymbol, Candidate candidate)
+        private static IEnumerable<string> GetPropertiesSources(ITypeSymbol targetTypeSymbol)
         {
             List<ITypeSymbol> allTypes = new List<ITypeSymbol>();
             AddBaseTypesAndThis(allTypes, targetTypeSymbol);
@@ -117,8 +120,8 @@ namespace {namespaceName}
                 .SelectMany(t => t.GetMembers().OfType<IMethodSymbol>().Select(m => new { Type = t, Member = m }))
                 .Where(m => !m.Member.IsStatic
                     && !m.Member.IsImplicitlyDeclared
-                    && !m.Member.Name.StartsWith("get_")
-                    && !m.Member.Name.StartsWith("set_"))
+                    && !m.Member.Name.StartsWith("get_", StringComparison.InvariantCulture)
+                    && !m.Member.Name.StartsWith("set_", StringComparison.InvariantCulture))
                 .Select(m =>
                 {
                     var methodParameters = string.Join(", ",
@@ -146,11 +149,13 @@ namespace {namespaceName}
                         ? "override "
                         : string.Empty;
 
+#pragma warning disable CA1308 // Normalize strings to uppercase
                     return $@"
         /// <summary>
         /// Implemented for type {GetFullyQualifiedTypeName(m.Type)}
         /// </summary>
-        public {funcTypeName}{funcTypeParameters} Mock{m.Member.Name} {{ private get; set; }}
+        public {funcTypeName}{funcTypeParameters} Mock{m.Member.Name}
+ {{ private get; set; }}
         {Enum.GetName(typeof(Accessibility), m.Member.DeclaredAccessibility)?.ToLowerInvariant()} {overrideStr}{(m.Member.ReturnsVoid ? "void" : GetFullyQualifiedTypeName(m.Member.ReturnType))} {m.Member.Name}({methodParameters})
         {{
             if (Mock{m.Member.Name} == null)
@@ -161,6 +166,7 @@ namespace {namespaceName}
             {(m.Member.ReturnsVoid ? string.Empty : "return ")}Mock{m.Member.Name}({methodParameterNames});
         }}";
                 });
+#pragma warning restore CA1308 // Normalize strings to uppercase
         }
 
         private static string GetFullyQualifiedTypeName(ITypeSymbol typeSymbol)
@@ -198,7 +204,7 @@ namespace {namespaceName}
                 {
                     var typeName = objectCreationExpressionSyntax.ChildNodes().OfType<IdentifierNameSyntax>().FirstOrDefault()
                         ?.ChildTokens().FirstOrDefault().Text;
-                    if ((typeName?.EndsWith(PostFix) ?? false)
+                    if ((typeName?.EndsWith(PostFix, StringComparison.InvariantCulture) ?? false)
                         && objectCreationExpressionSyntax.Parent != null
                         && objectCreationExpressionSyntax.Parent is CastExpressionSyntax castExpressionSyntax)
                     {

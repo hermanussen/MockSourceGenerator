@@ -2,7 +2,7 @@
 {
     class Program
     {
-        static void Main(string[] args)
+        static void Main()
         {
             var externalSystemService = new ExternalSystemService();
             new SomeService(externalSystemService)
