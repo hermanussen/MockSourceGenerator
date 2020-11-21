@@ -95,31 +95,40 @@ namespace {namespaceName}
 
         private static IEnumerable<string> GetPropertiesSources(ITypeSymbol targetTypeSymbol, Candidate candidate)
         {
-            return targetTypeSymbol
-                .GetMembers()
-                .OfType<IPropertySymbol>()
+            List<ITypeSymbol> allTypes = new List<ITypeSymbol>();
+            AddBaseTypesAndThis(allTypes, targetTypeSymbol);
+            return allTypes
+                .SelectMany(t => t.GetMembers().OfType<IPropertySymbol>().Select(m => new { Type = t, Member = m }))
                 .Select(m =>
                 {
                     return $@"
-    public {GetFullyQualifiedTypeName(m.Type)} {m.Name} {{ get; set; }}";
+    /// <summary>
+    /// Implemented for type {GetFullyQualifiedTypeName(m.Type)}
+    /// </summary>
+    public {GetFullyQualifiedTypeName(m.Member.Type)} {m.Member.Name} {{ get; set; }}";
                 });
         }
 
         private static IEnumerable<string> GetMemberSources(ITypeSymbol targetTypeSymbol, Candidate candidate)
         {
-            return targetTypeSymbol
-                .GetMembers()
-                .OfType<IMethodSymbol>()
-                .Where(m => !m.IsStatic && !m.IsImplicitlyDeclared && !m.Name.StartsWith("get_") && !m.Name.StartsWith("set_"))
+            List<ITypeSymbol> allTypes = new List<ITypeSymbol>();
+            AddBaseTypesAndThis(allTypes, targetTypeSymbol);
+            return allTypes
+                .SelectMany(t => t.GetMembers().OfType<IMethodSymbol>().Select(m => new { Type = t, Member = m }))
+                .Where(m => !m.Member.IsStatic
+                    && !m.Member.IsImplicitlyDeclared
+                    && !m.Member.Name.StartsWith("get_")
+                    && !m.Member.Name.StartsWith("set_"))
                 .Select(m =>
                 {
                     var methodParameters = string.Join(", ",
-                        m.Parameters.Select(p => $"{GetFullyQualifiedTypeName(p.Type)} {p.Name}"));
-                    var methodParameterNames = string.Join(", ", m.Parameters.Select(p => $"{p.Name}"));
+                        m.Member.Parameters.Select(p => $"{GetFullyQualifiedTypeName(p.Type)} {p.Name}"));
+                    var methodParameterNames = string.Join(", ", m.Member.Parameters.Select(p => $"{p.Name}"));
                     var methodParameterTypes =
-                        string.Join(",", m.Parameters.Select(p => $"{GetFullyQualifiedTypeName(p.Type)}"));
+                        string.Join(",", m.Member.Parameters.Select(p => $"{GetFullyQualifiedTypeName(p.Type)}"));
 
-                    if (m.MethodKind == MethodKind.Constructor)
+                    if (SymbolEqualityComparer.Default.Equals(m.Type, targetTypeSymbol)
+                        && m.Member.MethodKind == MethodKind.Constructor)
                     {
                         return $@"
         public {candidate.TypeName}({methodParameters}) : base({methodParameterNames})
@@ -128,25 +137,28 @@ namespace {namespaceName}
                     }
 
                     var funcTypeParameters =
-                        $"{methodParameterTypes},{(m.ReturnsVoid ? string.Empty : GetFullyQualifiedTypeName(m.ReturnType))}"
+                        $"{methodParameterTypes},{(m.Member.ReturnsVoid ? string.Empty : GetFullyQualifiedTypeName(m.Member.ReturnType))}"
                             .Trim(',');
-                    funcTypeParameters = m.Parameters.Any() || !m.ReturnsVoid ? $"<{funcTypeParameters}>" : string.Empty;
+                    funcTypeParameters = m.Member.Parameters.Any() || !m.Member.ReturnsVoid ? $"<{funcTypeParameters}>" : string.Empty;
 
-                    var funcTypeName = m.ReturnsVoid ? "Action" : "Func";
-                    var overrideStr = targetTypeSymbol.TypeKind == TypeKind.Class && (m.IsAbstract || m.IsVirtual)
+                    var funcTypeName = m.Member.ReturnsVoid ? "Action" : "Func";
+                    var overrideStr = targetTypeSymbol.TypeKind == TypeKind.Class && (m.Member.IsAbstract || m.Member.IsVirtual)
                         ? "override "
                         : string.Empty;
 
                     return $@"
-        public {funcTypeName}{funcTypeParameters} Mock{m.Name} {{ private get; set; }}
-        {Enum.GetName(typeof(Accessibility), m.DeclaredAccessibility)?.ToLowerInvariant()} {overrideStr}{(m.ReturnsVoid ? "void" : GetFullyQualifiedTypeName(m.ReturnType))} {m.Name}({methodParameters})
+        /// <summary>
+        /// Implemented for type {GetFullyQualifiedTypeName(m.Type)}
+        /// </summary>
+        public {funcTypeName}{funcTypeParameters} Mock{m.Member.Name} {{ private get; set; }}
+        {Enum.GetName(typeof(Accessibility), m.Member.DeclaredAccessibility)?.ToLowerInvariant()} {overrideStr}{(m.Member.ReturnsVoid ? "void" : GetFullyQualifiedTypeName(m.Member.ReturnType))} {m.Member.Name}({methodParameters})
         {{
-            if (Mock{m.Name} == null)
+            if (Mock{m.Member.Name} == null)
             {{
-                throw new NotImplementedException(""Method 'Mock{m.Name}' was called, but no mock implementation was provided"");
+                throw new NotImplementedException(""Method 'Mock{m.Member.Name}' was called, but no mock implementation was provided"");
             }}
 
-            {(m.ReturnsVoid ? string.Empty : "return ")}Mock{m.Name}({methodParameterNames});
+            {(m.Member.ReturnsVoid ? string.Empty : "return ")}Mock{m.Member.Name}({methodParameterNames});
         }}";
                 });
         }
@@ -155,6 +167,19 @@ namespace {namespaceName}
         {
             Action<string> ac = (a) => {};
             return typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        }
+
+        private static void AddBaseTypesAndThis(IList<ITypeSymbol> result, ITypeSymbol type)
+        {
+            if (type != null && !result.Contains(type) && type.SpecialType == SpecialType.None)
+            {
+                result.Add(type);
+                AddBaseTypesAndThis(result, type.BaseType);
+                foreach(var typeInterface in type.Interfaces)
+                {
+                    AddBaseTypesAndThis(result, typeInterface);
+                }
+            }
         }
 
         /// <summary>
