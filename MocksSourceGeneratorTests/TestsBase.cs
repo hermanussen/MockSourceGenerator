@@ -5,7 +5,9 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Emit;
+using MocksSourceGenerator;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -13,7 +15,7 @@ namespace SourceGeneratorTests
 {
     public class TestsBase
     {
-        private ITestOutputHelper _output;
+        private readonly ITestOutputHelper _output;
         private static List<MetadataReference> _metadataReferences;
         private static readonly object Lock = new object();
 
@@ -48,6 +50,11 @@ namespace SourceGeneratorTests
 
         protected string RunTest(Compilation compilation, List<Diagnostic> diagnostics = null)
         {
+            if(compilation == null)
+            {
+                throw new ArgumentException($"Argument {nameof(compilation)} must not be null");
+            }
+
             using var memoryStream = new MemoryStream();
             EmitResult result = compilation.Emit(memoryStream);
 
@@ -57,7 +64,7 @@ namespace SourceGeneratorTests
                 Assembly assembly = Assembly.Load(memoryStream.ToArray());
 
                 Type testClassType = assembly.GetType("Example.Test");
-                var stringResult = testClassType?.GetMethod("RunTest")?.Invoke(null, new object[0]) as string;
+                var stringResult = testClassType?.GetMethod("RunTest")?.Invoke(null, Array.Empty<object>()) as string;
                 _output.WriteLine($"Generated test output:\r\n===\r\n{stringResult}\r\n===\r\n");
                 return stringResult;
             }
@@ -81,16 +88,21 @@ namespace SourceGeneratorTests
 
             var references = MetadataReferences;
 
-            var compilation = CSharpCompilation.Create("TestImplementation", new [] { syntaxTree }, references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-
-            ISourceGenerator generator = new MocksSourceGenerator.MocksSourceGenerator();
+            var compilation = CSharpCompilation.Create(
+                    "TestImplementation",
+                    new [] { syntaxTree },
+                    references,
+                    new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            ISourceGenerator generator = new SourceGenerator();
 
             var driver = CSharpGeneratorDriver.Create(generator);
             driver.RunGeneratorsAndUpdateCompilation(compilation, out var outputCompilation, out var generateDiagnostics);
 
             if (diagnostics == null)
             {
-                Assert.False(generateDiagnostics.Any(d => d.Severity == DiagnosticSeverity.Error), "Failed: " + generateDiagnostics.FirstOrDefault()?.GetMessage());
+                Assert.False(
+                    generateDiagnostics.Any(d => d.Severity == DiagnosticSeverity.Error || d.Severity == DiagnosticSeverity.Warning),
+                    "Failed: " + generateDiagnostics.FirstOrDefault()?.GetMessage());
             }
             else
             {

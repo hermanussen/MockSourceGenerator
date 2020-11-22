@@ -7,7 +7,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace MocksSourceGenerator
 {
     [Generator]
-    public class MocksSourceGenerator : ISourceGenerator
+    public class SourceGenerator : ISourceGenerator
     {
         private const string PostFix = "Mock";
 
@@ -21,7 +21,7 @@ namespace MocksSourceGenerator
         {
             try
             {
-                if (!(context.SyntaxReceiver is SyntaxReceiver receiver))
+                if (context.SyntaxReceiver is not SyntaxReceiver receiver)
                 {
                     return;
                 }
@@ -154,8 +154,7 @@ namespace {namespaceName}
         /// <summary>
         /// Implemented for type {GetFullyQualifiedTypeName(m.Type)}
         /// </summary>
-        public {funcTypeName}{funcTypeParameters} Mock{m.Member.Name}
- {{ private get; set; }}
+        public {funcTypeName}{funcTypeParameters} Mock{m.Member.Name} {{ get; set; }}
         {Enum.GetName(typeof(Accessibility), m.Member.DeclaredAccessibility)?.ToLowerInvariant()} {overrideStr}{(m.Member.ReturnsVoid ? "void" : GetFullyQualifiedTypeName(m.Member.ReturnType))} {m.Member.Name}({methodParameters})
         {{
             if (Mock{m.Member.Name} == null)
@@ -171,7 +170,6 @@ namespace {namespaceName}
 
         private static string GetFullyQualifiedTypeName(ITypeSymbol typeSymbol)
         {
-            Action<string> ac = (a) => {};
             return typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         }
 
