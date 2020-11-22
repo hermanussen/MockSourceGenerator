@@ -121,7 +121,8 @@ namespace {namespaceName}
                 .Where(m => !m.Member.IsStatic
                     && !m.Member.IsImplicitlyDeclared
                     && !m.Member.Name.StartsWith("get_", StringComparison.InvariantCulture)
-                    && !m.Member.Name.StartsWith("set_", StringComparison.InvariantCulture))
+                    && !m.Member.Name.StartsWith("set_", StringComparison.InvariantCulture)
+                    && (m.Type.TypeKind != TypeKind.Class || m.Member.IsAbstract || m.Member.IsVirtual || m.Member.MethodKind == MethodKind.Constructor))
                 .Select(m =>
                 {
                     var methodParameters = string.Join(", ",

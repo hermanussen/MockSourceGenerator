@@ -5,13 +5,12 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Emit;
 using MocksSourceGenerator;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace SourceGeneratorTests
+namespace MocksSourceGeneratorTests
 {
     public class TestsBase
     {
@@ -50,7 +49,7 @@ namespace SourceGeneratorTests
 
         protected string RunTest(Compilation compilation, List<Diagnostic> diagnostics = null)
         {
-            if(compilation == null)
+            if (compilation == null)
             {
                 throw new ArgumentException($"Argument {nameof(compilation)} must not be null");
             }
@@ -90,7 +89,7 @@ namespace SourceGeneratorTests
 
             var compilation = CSharpCompilation.Create(
                     "TestImplementation",
-                    new [] { syntaxTree },
+                    new[] { syntaxTree },
                     references,
                     new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
             ISourceGenerator generator = new SourceGenerator();
