@@ -74,5 +74,41 @@ namespace Example
 
             Assert.Equal("someval", RunTest(compilation));
         }
+
+        [Fact]
+        public void ShouldGenerateWithoutConflicts()
+        {
+            string source = @"using System;
+namespace Example
+{
+    interface IExternalSystemService
+    {
+        int Add(int operand1, int operand2);
+    }   
+
+    abstract class ExternalSystemService : IExternalSystemService
+    {
+        public virtual int Add(int operand1, int operand2)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    class Test
+    {
+        public static string RunTest()
+        {
+            var mock = (ExternalSystemService) new MyMock()
+                {
+                    MockAdd = (o1, o2) => o1 + o2
+                };
+            return $""{mock.Add(5, 7)}"";
+        }
+    }
+}";
+            var compilation = GetGeneratedOutput(source);
+
+            Assert.Equal("12", RunTest(compilation));
+        }
     }
 }

@@ -114,16 +114,29 @@ namespace {namespaceName}
 
         private static IEnumerable<string> GetMemberSources(ITypeSymbol targetTypeSymbol, Candidate candidate)
         {
+            List<string> memberSources = new();
+            List<string> addedNames = new();
+
             List<ITypeSymbol> allTypes = new List<ITypeSymbol>();
             AddBaseTypesAndThis(allTypes, targetTypeSymbol);
-            return allTypes
-                .SelectMany(t => t.GetMembers().OfType<IMethodSymbol>().Select(m => new { Type = t, Member = m }))
+
+            var memberGroups = allTypes
+                .SelectMany(t => t.GetMembers().OfType<IMethodSymbol>().Select(m => new
+                    {
+                        Type = t,
+                        Member = m,
+                        NameWithParamTypes = $"{m.Name}{string.Join(string.Empty, m.Parameters.Select(p => p.Type.Name))}"
+                    }))
                 .Where(m => !m.Member.IsStatic
                     && !m.Member.IsImplicitlyDeclared
                     && !m.Member.Name.StartsWith("get_", StringComparison.InvariantCulture)
                     && !m.Member.Name.StartsWith("set_", StringComparison.InvariantCulture)
                     && (m.Type.TypeKind != TypeKind.Class || m.Member.IsAbstract || m.Member.IsVirtual || m.Member.MethodKind == MethodKind.Constructor))
-                .Select(m =>
+                .GroupBy(m => m.Member.Name);
+
+            foreach(var group in memberGroups)
+            {
+                foreach (var m in group)
                 {
                     var methodParameters = string.Join(", ",
                         m.Member.Parameters.Select(p => $"{GetFullyQualifiedTypeName(p.Type)} {p.Name}"));
@@ -134,10 +147,21 @@ namespace {namespaceName}
                     if (SymbolEqualityComparer.Default.Equals(m.Type, targetTypeSymbol)
                         && m.Member.MethodKind == MethodKind.Constructor)
                     {
-                        return $@"
+                        memberSources.Add($@"
         public {candidate.TypeName}({methodParameters}) : base({methodParameterNames})
         {{
-        }}";
+        }}");
+                        continue;
+                    }
+
+                    var name = group.Select(g => g.NameWithParamTypes).Distinct().Count() > 1 ? m.NameWithParamTypes : m.Member.Name;
+                    if(addedNames.Contains(name))
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        addedNames.Add(name);
                     }
 
                     var funcTypeParameters =
@@ -151,21 +175,24 @@ namespace {namespaceName}
                         : string.Empty;
 
 #pragma warning disable CA1308 // Normalize strings to uppercase
-                    return $@"
+                    memberSources.Add($@"
         /// <summary>
         /// Implemented for type {GetFullyQualifiedTypeName(m.Type)}
         /// </summary>
-        public {funcTypeName}{funcTypeParameters} Mock{m.Member.Name} {{ get; set; }}
+        public {funcTypeName}{funcTypeParameters} Mock{name} {{ get; set; }}
         {Enum.GetName(typeof(Accessibility), m.Member.DeclaredAccessibility)?.ToLowerInvariant()} {overrideStr}{(m.Member.ReturnsVoid ? "void" : GetFullyQualifiedTypeName(m.Member.ReturnType))} {m.Member.Name}({methodParameters})
         {{
-            if (Mock{m.Member.Name} == null)
+            if (Mock{name} == null)
             {{
-                throw new NotImplementedException(""Method 'Mock{m.Member.Name}' was called, but no mock implementation was provided"");
+                throw new NotImplementedException(""Method 'Mock{name}' was called, but no mock implementation was provided"");
             }}
 
-            {(m.Member.ReturnsVoid ? string.Empty : "return ")}Mock{m.Member.Name}({methodParameterNames});
-        }}";
-                });
+            {(m.Member.ReturnsVoid ? string.Empty : "return ")}Mock{name}({methodParameterNames});
+        }}");
+                }
+            }
+
+            return memberSources;
 #pragma warning restore CA1308 // Normalize strings to uppercase
         }
 

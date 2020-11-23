@@ -81,5 +81,35 @@ namespace Example
             Assert.NotEmpty(diagnostics);
             Assert.Equal("The type 'Example.MyMock' cannot be used for mocking 'global::Example.ISecondExternalSystemService', as it was already used to mock 'global::Example.IExternalSystemService'", diagnostics.First().GetMessage());
         }
+
+        [Fact]
+        public void ShouldGenerateOverloadsWithoutConflicts()
+        {
+            string source = @"using System;
+namespace Example
+{
+    interface IExternalSystemService
+    {
+        int Add(int operand1, int operand2);
+        int Add(int operand1, int operand2, int operand3);
+    }
+
+    class Test
+    {
+        public static string RunTest()
+        {
+            var mock = (IExternalSystemService) new MyMock()
+                {
+                    MockAddInt32Int32 = (o1, o2) => o1 + o2,
+                    MockAddInt32Int32Int32 = (o1, o2, o3) => o1 + o2 + o3
+                };
+            return $""{mock.Add(5, 7)} {mock.Add(3, 7, 1)}"";
+        }
+    }
+}";
+            var compilation = GetGeneratedOutput(source);
+
+            Assert.Equal("12 11", RunTest(compilation));
+        }
     }
 }
