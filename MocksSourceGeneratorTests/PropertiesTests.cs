@@ -36,5 +36,41 @@ namespace Example
 
             Assert.Equal("someval", RunTest(compilation));
         }
+
+        [Fact]
+        public void ShouldGeneratePropertyMockForReferenceType()
+        {
+            string source = @"using System;
+namespace Example
+{
+    interface IModel
+    {
+        string Prop { get; set; }
+    }
+
+    interface IExternalSystemService
+    {
+        IModel SomeProperty { get; set; }
+    }
+
+    class Test
+    {
+        public static string RunTest()
+        {
+            var mock = (IExternalSystemService) new MyMock()
+                {
+                    SomeProperty = (IModel) new ModelMock()
+                        {
+                            Prop = ""someval""
+                        }
+                };
+            return $""{mock.SomeProperty.Prop}"";
+        }
+    }
+}";
+            var compilation = GetGeneratedOutput(source);
+
+            Assert.Equal("someval", RunTest(compilation));
+        }
     }
 }

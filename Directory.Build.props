@@ -2,6 +2,7 @@
   <PropertyGroup>
     <LangVersion>9.0</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Nullable>enable</Nullable>
     <Version>0.2.0</Version>
   </PropertyGroup>
   <ItemGroup>

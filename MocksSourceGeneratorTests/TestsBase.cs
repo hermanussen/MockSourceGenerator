@@ -15,7 +15,7 @@ namespace MocksSourceGeneratorTests
     public class TestsBase
     {
         private readonly ITestOutputHelper _output;
-        private static List<MetadataReference> _metadataReferences;
+        private static List<MetadataReference>? _metadataReferences;
         private static readonly object Lock = new object();
 
         public TestsBase(ITestOutputHelper output)
@@ -47,7 +47,7 @@ namespace MocksSourceGeneratorTests
             }
         }
 
-        protected string RunTest(Compilation compilation, List<Diagnostic> diagnostics = null)
+        protected string? RunTest(Compilation compilation, List<Diagnostic>? diagnostics = null)
         {
             if (compilation == null)
             {
@@ -61,8 +61,7 @@ namespace MocksSourceGeneratorTests
             {
                 memoryStream.Seek(0, SeekOrigin.Begin);
                 Assembly assembly = Assembly.Load(memoryStream.ToArray());
-
-                Type testClassType = assembly.GetType("Example.Test");
+                Type? testClassType = assembly.GetType("Example.Test");
                 var stringResult = testClassType?.GetMethod("RunTest")?.Invoke(null, Array.Empty<object>()) as string;
                 _output.WriteLine($"Generated test output:\r\n===\r\n{stringResult}\r\n===\r\n");
                 return stringResult;
@@ -81,7 +80,7 @@ namespace MocksSourceGeneratorTests
             return null;
         }
 
-        protected Compilation GetGeneratedOutput(string source, List<Diagnostic> diagnostics = null)
+        protected Compilation GetGeneratedOutput(string source, List<Diagnostic>? diagnostics = null)
         {
             var syntaxTree = CSharpSyntaxTree.ParseText(source);
 

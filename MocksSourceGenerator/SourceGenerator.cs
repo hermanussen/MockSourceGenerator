@@ -34,6 +34,11 @@ namespace MocksSourceGenerator
                 {
                     var semanticModel = context.Compilation.GetSemanticModel(candidate.ObjectCreationExpressionSyntax.SyntaxTree);
                     var targetTypeSymbol = semanticModel.GetSymbolInfo(candidate.TargetType.Type).Symbol?.OriginalDefinition as ITypeSymbol;
+                    if(targetTypeSymbol == null)
+                    {
+                        continue;
+                    }
+
                     var namespaceName = targetTypeSymbol.ContainingNamespace
                         .ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
                         .Replace("global::", string.Empty);
@@ -84,9 +89,12 @@ namespace {namespaceName}
                 }
 
 
-                var source = $@"using System;
+                var source = $@"
+#nullable enable
+using System;
 {string.Join("\r\n", usings.Distinct())}
-{string.Join("\r\n", mockSources)}";
+{string.Join("\r\n", mockSources)}
+#nullable disable";
 
                 context.AddSource("GeneratedMocks.gen.cs", source);
             }
@@ -184,7 +192,7 @@ namespace {namespaceName}
         /// <summary>
         /// Implemented for type {GetFullyQualifiedTypeName(m.Type)} ({m.Member.DeclaredAccessibility}, same assembly: {isSameAssembly})
         /// </summary>
-        public {funcTypeName}{funcTypeParameters} Mock{name} {{ get; set; }}
+        public {funcTypeName}{funcTypeParameters}? Mock{name} {{ get; set; }}
         {GetAccessibility(m.Member, isSameAssembly)} {overrideStr}{(m.Member.ReturnsVoid ? "void" : GetFullyQualifiedTypeName(m.Member.ReturnType))} {m.Member.Name}({methodParameters})
         {{
             if (Mock{name} == null)
@@ -218,7 +226,7 @@ namespace {namespaceName}
             }
         }
 
-        private static void AddBaseTypesAndThis(IList<ITypeSymbol> result, ITypeSymbol type)
+        private static void AddBaseTypesAndThis(IList<ITypeSymbol> result, ITypeSymbol? type)
         {
             if (type != null && !result.Contains(type) && type.SpecialType == SpecialType.None)
             {
