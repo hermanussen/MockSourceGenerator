@@ -38,6 +38,9 @@ namespace MocksSourceGenerator
                         .ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
                         .Replace("global::", string.Empty);
                     var fullMockTypeName = $"{namespaceName}.{candidate.TypeName}";
+                    var isSameAssembly = string.Equals(
+                        semanticModel.Compilation.Assembly.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                        targetTypeSymbol.ContainingAssembly.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 
                     if (generatedTypes.ContainsKey(fullMockTypeName))
                     {
@@ -63,20 +66,18 @@ namespace MocksSourceGenerator
 
                     usings.Add($"using {targetTypeSymbol.ContainingNamespace.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)};");
 
-                    var targetSymbolMembersSources = GetMemberSources(targetTypeSymbol, candidate);
-                    var targetSymbolPropertiesSources = GetPropertiesSources(targetTypeSymbol);
+                    var targetSymbolMembersSources = GetMemberSources(targetTypeSymbol, candidate, isSameAssembly);
+                    var targetSymbolPropertiesSources = GetPropertiesSources(targetTypeSymbol, isSameAssembly);
 
-#pragma warning disable CA1308 // Normalize strings to uppercase
                     string mockSource = $@"
 namespace {namespaceName}
 {{
-    {Enum.GetName(typeof(Accessibility), targetTypeSymbol.DeclaredAccessibility)?.ToLowerInvariant()} class {candidate.TypeName} : {targetTypeName}
+    {GetAccessibility(targetTypeSymbol, isSameAssembly)} partial class {candidate.TypeName} : {targetTypeName}
     {{
 {string.Join("\r\n", targetSymbolPropertiesSources)}
 {string.Join("\r\n", targetSymbolMembersSources)}
     }}
 }}";
-#pragma warning restore CA1308 // Normalize strings to uppercase
 
                     mockSources.Add(mockSource);
                     generatedTypes.Add(fullMockTypeName, targetTypeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
@@ -96,23 +97,28 @@ namespace {namespaceName}
             }
         }
 
-        private static IEnumerable<string> GetPropertiesSources(ITypeSymbol targetTypeSymbol)
+        private static IEnumerable<string> GetPropertiesSources(ITypeSymbol targetTypeSymbol, bool isSameAssembly)
         {
             List<ITypeSymbol> allTypes = new List<ITypeSymbol>();
             AddBaseTypesAndThis(allTypes, targetTypeSymbol);
             return allTypes
                 .SelectMany(t => t.GetMembers().OfType<IPropertySymbol>().Select(m => new { Type = t, Member = m }))
+                .Where(t => t.Type.TypeKind != TypeKind.Class || (t.Type.TypeKind != TypeKind.Class || t.Member.IsAbstract || t.Member.IsVirtual))
                 .Select(m =>
                 {
+                    var overrideStr = targetTypeSymbol.TypeKind == TypeKind.Class && (m.Member.IsAbstract || m.Member.IsVirtual)
+                        ? "override "
+                        : string.Empty;
+
                     return $@"
     /// <summary>
     /// Implemented for type {GetFullyQualifiedTypeName(m.Type)}
     /// </summary>
-    public {GetFullyQualifiedTypeName(m.Member.Type)} {m.Member.Name} {{ get; set; }}";
+    {GetAccessibility(m.Member, isSameAssembly)} {overrideStr}{GetFullyQualifiedTypeName(m.Member.Type)} {m.Member.Name} {{ get; set; }}";
                 });
         }
 
-        private static IEnumerable<string> GetMemberSources(ITypeSymbol targetTypeSymbol, Candidate candidate)
+        private static IEnumerable<string> GetMemberSources(ITypeSymbol targetTypeSymbol, Candidate candidate, bool isSameAssembly)
         {
             List<string> memberSources = new();
             List<string> addedNames = new();
@@ -174,13 +180,12 @@ namespace {namespaceName}
                         ? "override "
                         : string.Empty;
 
-#pragma warning disable CA1308 // Normalize strings to uppercase
                     memberSources.Add($@"
         /// <summary>
-        /// Implemented for type {GetFullyQualifiedTypeName(m.Type)}
+        /// Implemented for type {GetFullyQualifiedTypeName(m.Type)} ({m.Member.DeclaredAccessibility}, same assembly: {isSameAssembly})
         /// </summary>
         public {funcTypeName}{funcTypeParameters} Mock{name} {{ get; set; }}
-        {Enum.GetName(typeof(Accessibility), m.Member.DeclaredAccessibility)?.ToLowerInvariant()} {overrideStr}{(m.Member.ReturnsVoid ? "void" : GetFullyQualifiedTypeName(m.Member.ReturnType))} {m.Member.Name}({methodParameters})
+        {GetAccessibility(m.Member, isSameAssembly)} {overrideStr}{(m.Member.ReturnsVoid ? "void" : GetFullyQualifiedTypeName(m.Member.ReturnType))} {m.Member.Name}({methodParameters})
         {{
             if (Mock{name} == null)
             {{
@@ -193,12 +198,24 @@ namespace {namespaceName}
             }
 
             return memberSources;
-#pragma warning restore CA1308 // Normalize strings to uppercase
         }
 
-        private static string GetFullyQualifiedTypeName(ITypeSymbol typeSymbol)
+        private static string GetFullyQualifiedTypeName(ISymbol symbol)
         {
-            return typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            return symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        }
+
+        private static string GetAccessibility(ISymbol symbol, bool isSameAssembly)
+        {
+            switch(symbol.DeclaredAccessibility)
+            {
+                case Accessibility.NotApplicable or Accessibility.Public: return "public";
+                case Accessibility.Private: return "private";
+                case Accessibility.ProtectedAndInternal or Accessibility.ProtectedOrInternal: return isSameAssembly ? "protected internal" : "protected";
+                case Accessibility.Protected: return "protected";
+                case Accessibility.Internal: return isSameAssembly ? "internal" : "public";
+                default: return string.Empty;
+            }
         }
 
         private static void AddBaseTypesAndThis(IList<ITypeSymbol> result, ITypeSymbol type)
