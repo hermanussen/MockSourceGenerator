@@ -33,8 +33,8 @@ namespace MocksSourceGenerator
                 foreach (var candidate in receiver.Candidates)
                 {
                     var semanticModel = context.Compilation.GetSemanticModel(candidate.ObjectCreationExpressionSyntax.SyntaxTree);
-                    var targetTypeSymbol = semanticModel.GetSymbolInfo(candidate.TargetType.Type).Symbol?.OriginalDefinition as ITypeSymbol;
-                    if(targetTypeSymbol == null)
+                    var targetTypeSymbol = semanticModel.GetSymbolInfo(candidate.TargetType.Type).Symbol as INamedTypeSymbol;
+                    if (targetTypeSymbol == null)
                     {
                         continue;
                     }

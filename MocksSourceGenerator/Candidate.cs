@@ -1,22 +1,16 @@
 ﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Collections.Generic;
 
 namespace MocksSourceGenerator
 {
-    public class Candidate
+    public record Candidate(
+                string TypeName,
+                ObjectCreationExpressionSyntax ObjectCreationExpressionSyntax,
+                CastExpressionSyntax TargetType
+            )
     {
-        public string TypeName { get; }
-        public ObjectCreationExpressionSyntax ObjectCreationExpressionSyntax { get; }
-
-        public CastExpressionSyntax TargetType { get; }
-
-        public Candidate(
-            string typeName,
-            ObjectCreationExpressionSyntax objectCreationExpressionSyntax,
-            CastExpressionSyntax targetType)
-        {
-            this.TypeName = typeName;
-            this.ObjectCreationExpressionSyntax = objectCreationExpressionSyntax;
-            this.TargetType = targetType;
-        }
+        public string TypeName { get; } = TypeName;
+        public ObjectCreationExpressionSyntax ObjectCreationExpressionSyntax { get; } = ObjectCreationExpressionSyntax;
+        public CastExpressionSyntax TargetType { get; } = TargetType;
     }
 }
