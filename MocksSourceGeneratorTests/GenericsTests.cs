@@ -58,7 +58,7 @@ namespace Example
         }
 
         [Fact]
-        public void ShouldGenerateWithCorrectGenericTypeAdvanced()
+        public void ShouldGenerateWithCorrectGenericTypeAndDoNotOverride()
         {
             string source = @"using System;
 using System.Threading.Tasks;
@@ -66,7 +66,7 @@ namespace Example
 {
     public interface IModelMapper<T>
     {
-        public string ModelStr { get; }
+        public T ModelVal { get; }
     }
     
     public class Parameter
@@ -79,7 +79,7 @@ namespace Example
         Task<T> Get(string resourceName, Parameter[] parameters = null, bool returnMockData = false);
     }
 
-    public class Agent<T> : IAgent<T>
+    public abstract class Agent<T> : IAgent<T>
     {
         private readonly IModelMapper<T> modelMapper;
 
@@ -90,7 +90,7 @@ namespace Example
 
         public async Task<T?> Get(string resourceName, Parameter[] parameters = null, bool returnMockData = false)
         {
-            return default(T);
+            return modelMapper.ModelVal;
         }
     }
 
@@ -100,13 +100,10 @@ namespace Example
         {
             var modelMapperMock = (IModelMapper<string>) new ModelMapperMock()
                 {
-                    ModelStr = ""returnval""
+                    ModelVal = ""returnval""
                 };
-            var mock = (Agent<string>) new MyMock(modelMapperMock)
-                {
-                    MockGet = (a, b, c) => modelMapperMock.ModelStr
-                };
-            var task = Task.Run<string>(async () => await ((MyMock) mock).Get(""resource"", new Parameter[0], false));
+            var mock = (Agent<string>) new MyMock(modelMapperMock);
+            var task = Task.Run<string>(async () => await mock.Get(""resource"", new Parameter[0], false));
 
             string result = task.Result;
             

@@ -149,8 +149,7 @@ using System;
                 .Where(m => !m.Member.IsStatic
                     && !m.Member.IsImplicitlyDeclared
                     && !m.Member.Name.StartsWith("get_", StringComparison.InvariantCulture)
-                    && !m.Member.Name.StartsWith("set_", StringComparison.InvariantCulture)
-                    /*&& (m.Type.TypeKind != TypeKind.Class || m.Member.IsAbstract || m.Member.IsVirtual || m.Member.MethodKind == MethodKind.Constructor)*/)
+                    && !m.Member.Name.StartsWith("set_", StringComparison.InvariantCulture))
                 .GroupBy(m => m.Member.Name);
 
             foreach(var group in memberGroups)
@@ -161,6 +160,15 @@ using System;
                         AddBaseTypesAndThis(allTypes, i.Type);
                         return allTypes.Select(t => t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)).Distinct().Count();
                     });
+                var firstInGroup = groupOrdered.First();
+                if (firstInGroup.Type.TypeKind == TypeKind.Class
+                    && !(firstInGroup.Member.IsVirtual || firstInGroup.Member.IsAbstract)
+                    && !firstInGroup.Member.Name.StartsWith(".ctor", StringComparison.InvariantCulture))
+                {
+                    // If the lowest implementation cannot be overridden, then skip
+                    continue;
+                }
+
                 foreach (var m in groupOrdered)
                 {
                     var methodParameters = string.Join(", ",
