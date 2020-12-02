@@ -83,7 +83,7 @@ namespace {namespaceName}
         /// Set this to true, if you want members that don't have a mock implementation
         /// to return a default value instead of throwing an exception.
         /// </summary>
-        public bool ReturnDefaultIfNotMocked {{ get; set; }} = false;
+        public bool ReturnDefaultIfNotMocked {{ get; set; }}
 {string.Join("\r\n", targetSymbolPropertiesSources)}
 {string.Join("\r\n", targetSymbolMembersSources)}
     }}
