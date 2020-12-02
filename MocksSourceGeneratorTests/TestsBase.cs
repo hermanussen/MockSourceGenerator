@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
@@ -62,15 +63,27 @@ namespace MocksSourceGeneratorTests
                 memoryStream.Seek(0, SeekOrigin.Begin);
                 Assembly assembly = Assembly.Load(memoryStream.ToArray());
                 Type? testClassType = assembly.GetType("Example.Test");
-                var stringResult = testClassType?.GetMethod("RunTest")?.Invoke(null, Array.Empty<object>()) as string;
+                var method = testClassType?.GetMethod("RunTest") ?? testClassType?.GetMethod("RunTestAsync");
+                if(method == null)
+                {
+                    return "-- could not find test method --";
+                }
+
+                var resultObj = method.Invoke(null, Array.Empty<object>());
+                if (resultObj is not string stringResult)
+                {
+                    return "-- result was not a string --";
+                }
+
                 _output.WriteLine($"Generated test output:\r\n===\r\n{stringResult}\r\n===\r\n");
+
                 return stringResult;
             }
 
             if (diagnostics == null)
             {
                 Assert.False(true,
-                    $"Compilation did not succeed: {string.Join("\r\n", result.Diagnostics.Select(d => $"{Enum.GetName(typeof(DiagnosticSeverity), d.Severity)} ({d.Location}) - {d.GetMessage()}"))}");
+                    $"Compilation did not succeed:\r\n{string.Join("\r\n", result.Diagnostics.Select(d => $"{Enum.GetName(typeof(DiagnosticSeverity), d.Severity)} ({d.Location}) - {d.GetMessage()}"))}");
             }
             else
             {

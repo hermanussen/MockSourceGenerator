@@ -79,6 +79,11 @@ namespace {namespaceName}
 {{
     {GetAccessibility(targetTypeSymbol, isSameAssembly)} partial class {candidate.TypeName} : {targetTypeName}
     {{
+        /// <summary>
+        /// Set this to true, if you want members that don't have a mock implementation
+        /// to return a default value instead of throwing an exception.
+        /// </summary>
+        public bool ReturnDefaultIfNotMocked {{ get; set; }} = false;
 {string.Join("\r\n", targetSymbolPropertiesSources)}
 {string.Join("\r\n", targetSymbolMembersSources)}
     }}
@@ -145,12 +150,18 @@ using System;
                     && !m.Member.IsImplicitlyDeclared
                     && !m.Member.Name.StartsWith("get_", StringComparison.InvariantCulture)
                     && !m.Member.Name.StartsWith("set_", StringComparison.InvariantCulture)
-                    && (m.Type.TypeKind != TypeKind.Class || m.Member.IsAbstract || m.Member.IsVirtual || m.Member.MethodKind == MethodKind.Constructor))
+                    /*&& (m.Type.TypeKind != TypeKind.Class || m.Member.IsAbstract || m.Member.IsVirtual || m.Member.MethodKind == MethodKind.Constructor)*/)
                 .GroupBy(m => m.Member.Name);
 
             foreach(var group in memberGroups)
             {
-                foreach (var m in group)
+                var groupOrdered = group.OrderByDescending(i =>
+                    {
+                        List<ITypeSymbol> allTypes = new List<ITypeSymbol>();
+                        AddBaseTypesAndThis(allTypes, i.Type);
+                        return allTypes.Select(t => t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)).Distinct().Count();
+                    });
+                foreach (var m in groupOrdered)
                 {
                     var methodParameters = string.Join(", ",
                         m.Member.Parameters.Select(p => $"{GetFullyQualifiedTypeName(p.Type)} {p.Name}"));
@@ -178,29 +189,50 @@ using System;
                         addedNames.Add(name);
                     }
 
+                    var returnType = (INamedTypeSymbol) m.Member.ReturnType;
+                    if(m.Member.IsAsync && returnType.Name.Equals(nameof(System.Threading.Tasks.Task)))
+                    {
+                        returnType = (INamedTypeSymbol) returnType.TypeArguments.First();
+                    }
+
                     var funcTypeParameters =
-                        $"{methodParameterTypes},{(m.Member.ReturnsVoid ? string.Empty : GetFullyQualifiedTypeName(m.Member.ReturnType))}"
+                        $"{methodParameterTypes},{(m.Member.ReturnsVoid ? string.Empty : GetFullyQualifiedTypeName(returnType))}"
                             .Trim(',');
                     funcTypeParameters = m.Member.Parameters.Any() || !m.Member.ReturnsVoid ? $"<{funcTypeParameters}>" : string.Empty;
 
                     var funcTypeName = m.Member.ReturnsVoid ? "Action" : "Func";
-                    var overrideStr = targetTypeSymbol.TypeKind == TypeKind.Class && (m.Member.IsAbstract || m.Member.IsVirtual)
+                    var overrideStr = targetTypeSymbol.TypeKind == TypeKind.Class && (m.Member.IsVirtual || (m.Member.IsAbstract && m.Type.IsAbstract))
                         ? "override "
                         : string.Empty;
+
+                    var asyncStr = m.Member.IsAsync
+                        ? "async "
+                        : string.Empty;
+
+                    var methodCallStr = $"Mock{name}({methodParameterNames})";
+
+                    var returnStr = $"{(m.Member.ReturnsVoid ? string.Empty : "return ")}{methodCallStr};";
 
                     memberSources.Add($@"
         /// <summary>
         /// Implemented for type {GetFullyQualifiedTypeName(m.Type)} ({m.Member.DeclaredAccessibility}, same assembly: {isSameAssembly})
         /// </summary>
         public {funcTypeName}{funcTypeParameters}? Mock{name} {{ get; set; }}
-        {GetAccessibility(m.Member, isSameAssembly)} {overrideStr}{(m.Member.ReturnsVoid ? "void" : GetFullyQualifiedTypeName(m.Member.ReturnType))} {m.Member.Name}({methodParameters})
+        {GetAccessibility(m.Member, isSameAssembly)} {overrideStr}{asyncStr}{(m.Member.ReturnsVoid ? "void" : GetFullyQualifiedTypeName(m.Member.ReturnType))} {m.Member.Name}({methodParameters})
         {{
             if (Mock{name} == null)
             {{
-                throw new NotImplementedException(""Method 'Mock{name}' was called, but no mock implementation was provided"");
+                if (ReturnDefaultIfNotMocked)
+                {{
+                    {(m.Member.ReturnsVoid ? "return;" : $"return default({GetFullyQualifiedTypeName(returnType)});")}
+                }}
+                else
+                {{
+                    throw new NotImplementedException(""Method 'Mock{name}' was called, but no mock implementation was provided"");
+                }}
             }}
 
-            {(m.Member.ReturnsVoid ? string.Empty : "return ")}Mock{name}({methodParameterNames});
+            {returnStr}
         }}");
                 }
             }
