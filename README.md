@@ -14,9 +14,9 @@ public void TestCase()
     // - It will use whatever name you choose for the mock class, as long as it ends with "Mock"
     // - The cast is important; the generator will know what to mock based on the type used
     var mock = (IExternalSystemService) new MyMock
-        {
-            MockAdd = (o1, o2) => 5
-        };
+    {
+        MockAdd = (o1, o2) => 5
+    };
     Assert.Equal(5, mock.Add(2, 3));
 }
 ```
@@ -25,14 +25,35 @@ By default, you must mock all methods that are called during the test. If you do
 
 ```csharp
 [Fact]
-public void TestCase()
+public void TestCase2()
 {
     // The following does not provide a mock implementation for Add(...)
     var mock = (IExternalSystemService) new MyMock
-        {
-            ReturnDefaultIfNotMocked = true
-        };
+    {
+        ReturnDefaultIfNotMocked = true
+    };
     Assert.Equal(0, mock.Add(2, 3)); // 0 is the default int value
+}
+```
+
+You can also verify if the mocked methods are called (and in which order, with which parameters, if you want).
+```csharp
+[Fact]
+public void TestCase3()
+{
+    var mock = (IExternalSystemService)new MyMock
+    {
+        MockAdd = (o1, o2) => 5
+    };
+
+    Assert.Equal(5, mock.Add(2, 3));
+    Assert.Equal(5, mock.Add(1, 4));
+
+    // Check if the Add(...) method is called twice, with given parameters (optional)
+    Assert.Collection(
+        ((MyMock) mock).HistoryEntries,
+        i => Assert.Equal("Add(2, 3)", i.ToString()),
+        i => Assert.Equal("Add(1, 4)", i.ToString()));
 }
 ```
 

@@ -5,20 +5,46 @@ namespace ExampleAppTests
 {
     public class SomeServiceTest
     {
-        [Theory]
-        [InlineData(1, 2, 3)]
-        public void ShouldAddUsingExternalService(int operand1, int operand2, int result)
+        [Fact]
+        public void TestCase()
         {
             // The generator will generate an appropriate mock class
             // - It will use whatever name you choose for the mock class, as long as it ends with "Mock"
             // - The cast is important; the generator will know what to mock based on the type used
             var mock = (IExternalSystemService) new MyMock
-                {
-                    MockAdd = (o1, o2) => result
-                };
-            var calculated = new SomeService(mock)
-                .AddUsingExternalService(operand1, operand2);
-            Assert.Equal(result, calculated);
+            {
+                MockAdd = (o1, o2) => 5
+            };
+            Assert.Equal(5, mock.Add(2, 3));
+        }
+
+        [Fact]
+        public void TestCase2()
+        {
+            // The following does not provide a mock implementation for Add(...)
+            var mock = (IExternalSystemService) new MyMock
+            {
+                ReturnDefaultIfNotMocked = true
+            };
+            Assert.Equal(0, mock.Add(2, 3)); // 0 is the default int value
+        }
+
+        [Fact]
+        public void TestCase3()
+        {
+            var mock = (IExternalSystemService)new MyMock
+            {
+                MockAdd = (o1, o2) => 5
+            };
+
+            Assert.Equal(5, mock.Add(2, 3));
+            Assert.Equal(5, mock.Add(1, 4));
+
+            // Check if the Add(...) method is called twice, with given parameters (optional)
+            Assert.Collection(
+                ((MyMock) mock).HistoryEntries,
+                i => Assert.Equal("Add(2, 3)", i.ToString()),
+                i => Assert.Equal("Add(1, 4)", i.ToString()));
         }
     }
 }

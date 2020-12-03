@@ -27,7 +27,6 @@ namespace MocksSourceGenerator
                 }
 
                 var mockSources = new List<string>();
-                var usings = new List<string>();
                 var generatedTypes = new Dictionary<string,string>();
 
                 foreach (var candidate in receiver.Candidates)
@@ -69,14 +68,16 @@ namespace MocksSourceGenerator
 
                     var targetTypeName = targetTypeSymbol.ToDisplayString(NullableFlowState.None, SymbolDisplayFormat.FullyQualifiedFormat);
 
-                    usings.Add($"using {targetTypeSymbol.ContainingNamespace.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)};");
-
                     var targetSymbolMembersSources = GetMemberSources(targetTypeSymbol, candidate, isSameAssembly);
                     var targetSymbolPropertiesSources = GetPropertiesSources(targetTypeSymbol, isSameAssembly);
 
                     string mockSource = $@"
 namespace {namespaceName}
 {{
+    using System;
+    using MocksSourceGenerator;
+    using {targetTypeSymbol.ContainingNamespace.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)};
+
     {GetAccessibility(targetTypeSymbol, isSameAssembly)} partial class {candidate.TypeName} : {targetTypeName}
     {{
         /// <summary>
@@ -84,6 +85,15 @@ namespace {namespaceName}
         /// to return a default value instead of throwing an exception.
         /// </summary>
         public bool ReturnDefaultIfNotMocked {{ get; set; }}
+
+        private System.Collections.Generic.List<HistoryEntry> historyEntries = new System.Collections.Generic.List<HistoryEntry>();
+        public System.Collections.ObjectModel.ReadOnlyCollection<HistoryEntry> HistoryEntries
+        {{
+            get
+            {{
+                return historyEntries.AsReadOnly();
+            }}
+        }}
 {string.Join("\r\n", targetSymbolPropertiesSources)}
 {string.Join("\r\n", targetSymbolMembersSources)}
     }}
@@ -96,8 +106,26 @@ namespace {namespaceName}
 
                 var source = $@"
 #nullable enable
-using System;
-{string.Join("\r\n", usings.Distinct())}
+
+namespace MocksSourceGenerator
+{{
+    using System;
+
+    public class HistoryEntry
+    {{
+        public string MethodName {{ get; private set; }}
+        public System.Collections.ObjectModel.ReadOnlyCollection<string> ArgumentValuesToString {{ get; private set; }}
+        public HistoryEntry (string methodName, string[] argumentValuesToString) {{
+            this.MethodName = methodName;
+            this.ArgumentValuesToString = Array.AsReadOnly<string>(argumentValuesToString);
+        }}
+        public override string ToString()
+        {{
+            return $""{{MethodName}}({{string.Join("", "", ArgumentValuesToString)}})"";
+        }}
+    }}
+}}
+
 {string.Join("\r\n", mockSources)}
 #nullable disable";
 
@@ -176,6 +204,7 @@ using System;
                     var methodParameterNames = string.Join(", ", m.Member.Parameters.Select(p => $"{p.Name}"));
                     var methodParameterTypes =
                         string.Join(",", m.Member.Parameters.Select(p => $"{GetFullyQualifiedTypeName(p.Type)}"));
+                    var methodParameterValues = m.Member.Parameters.Any() ? $"new [] {{ {string.Join(", ", m.Member.Parameters.Select(p => $"$\"{{{p.Name}}}\""))} }}" : "new string[0]";
 
                     if (SymbolEqualityComparer.Default.Equals(m.Type, targetTypeSymbol)
                         && m.Member.MethodKind == MethodKind.Constructor)
@@ -228,6 +257,8 @@ using System;
         public {funcTypeName}{funcTypeParameters}? Mock{name} {{ get; set; }}
         {GetAccessibility(m.Member, isSameAssembly)} {overrideStr}{asyncStr}{(m.Member.ReturnsVoid ? "void" : GetFullyQualifiedTypeName(m.Member.ReturnType))} {m.Member.Name}({methodParameters})
         {{
+            historyEntries.Add(new HistoryEntry(""{m.Member.Name}"", {methodParameterValues}));
+
             if (Mock{name} == null)
             {{
                 if (ReturnDefaultIfNotMocked)

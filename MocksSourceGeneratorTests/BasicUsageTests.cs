@@ -2,7 +2,7 @@ using MocksSourceGeneratorTests;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace SourceGeneratorTests
+namespace MocksSourceGeneratorTests
 {
     public class BasicUsageTests : TestsBase
     {
@@ -130,6 +130,52 @@ namespace Example
             var compilation = GetGeneratedOutput(source);
 
             Assert.Equal(true.ToString(), RunTest(compilation));
+        }
+
+        [Fact]
+        public void ShouldGenerateWithMultipleNamespaces()
+        {
+            string source = @"using System;
+namespace Example1
+{
+    interface IExternalSystemService
+    {
+        int Add(int operand1, int operand2);
+    }
+}
+
+namespace Example2
+{
+    interface IExternalSystemService2
+    {
+        int Add(int operand1, int operand2);
+    }
+}
+
+namespace Example
+{
+    using Example1;
+    using Example2;
+
+    class Test
+    {
+        public static string RunTest()
+        {
+            var mock = (IExternalSystemService) new MyMock()
+                {
+                    MockAdd = (o1, o2) => o1 + o2
+                };
+            var mock2 = (IExternalSystemService2) new MySecondMock()
+                {
+                    MockAdd = (o1, o2) => o1 + o2
+                };
+            return $""{mock.Add(5, 7)} {mock2.Add(5, 7)}"";
+        }
+    }
+}";
+            var compilation = GetGeneratedOutput(source);
+
+            Assert.Equal("12 12", RunTest(compilation));
         }
     }
 }
