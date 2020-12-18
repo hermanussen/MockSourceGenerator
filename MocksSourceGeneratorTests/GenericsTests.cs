@@ -42,7 +42,7 @@ namespace Example
                 {
                     MockSomeGenericMethod = (a) => a
                 };
-            return $""{mock.SomeGenericMethod((IAnimalModel) new AnimalMock() { ModelName = ""Elephant"" }).ModelName}"";
+            return $""{mock.SomeGenericMethod((IAnimalModel) new AnimalMock() { MockModelName = ""Elephant"" }).ModelName}"";
         }
     }
 }";
@@ -100,7 +100,7 @@ namespace Example
         {
             var modelMapperMock = (IModelMapper<string>) new ModelMapperMock()
                 {
-                    ModelVal = ""returnval""
+                    MockModelVal = ""returnval""
                 };
             var mock = (Agent<string>) new MyMock(modelMapperMock);
             var task = Task.Run<string>(async () => await mock.Get(""resource"", new Parameter[0], false));

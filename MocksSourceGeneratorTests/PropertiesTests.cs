@@ -72,5 +72,41 @@ namespace Example
 
             Assert.Equal("someval", RunTest(compilation));
         }
+
+        [Fact]
+        public void ShouldGenerateIfOnlyGetIsAccessible()
+        {
+            string source = @"using System;
+namespace Example
+{
+    internal abstract class ExternalSystemServiceBase
+    {
+        protected virtual string SomeProp { get; }
+    }   
+
+    internal class ExternalSystemService : ExternalSystemServiceBase
+    {
+        internal string GetPropVal()
+        {
+            return this.SomeProp;
+        }
+    }
+
+    class Test
+    {
+        public static string RunTest()
+        {
+            var mock = (ExternalSystemService) new MyMock()
+                {
+                    MockSomeProp = ""someval""
+                };
+            return $""{mock.GetPropVal()}"";
+        }
+    }
+}";
+            var compilation = GetGeneratedOutput(source);
+
+            Assert.Equal("someval", RunTest(compilation));
+        }
     }
 }

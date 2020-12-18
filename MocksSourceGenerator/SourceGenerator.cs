@@ -151,11 +151,19 @@ namespace MocksSourceGenerator
                         ? "override "
                         : string.Empty;
 
+                    string mainAccessibility = GetAccessibility(m.Member, isSameAssembly);
+
+                    string getAccessibility = GetPropertyAccessorAccessibility(mainAccessibility, m.Member.GetMethod, isSameAssembly);
+                    string setAccessibility = GetPropertyAccessorAccessibility(mainAccessibility, m.Member.SetMethod, isSameAssembly);
+                    string getter = m.Member.GetMethod != null && m.Member.GetMethod.DeclaredAccessibility != Accessibility.Private ? $"{getAccessibility} get {{ return Mock{m.Member.Name} ?? default({GetFullyQualifiedTypeName(m.Member.Type)}); }}" : string.Empty;
+                    string setter = m.Member.SetMethod != null && m.Member.SetMethod.DeclaredAccessibility != Accessibility.Private ? $"{setAccessibility} set {{ Mock{m.Member.Name} = value; }}" : string.Empty;
+
                     return $@"
     /// <summary>
     /// Implemented for type {GetFullyQualifiedTypeName(m.Type)}
     /// </summary>
-    {GetAccessibility(m.Member, isSameAssembly)} {overrideStr}{GetFullyQualifiedTypeName(m.Member.Type)} {m.Member.Name} {{ get; set; }}";
+    public {GetFullyQualifiedTypeName(m.Member.Type)}? Mock{m.Member.Name} {{ get; set; }}
+    {mainAccessibility} {overrideStr}{GetFullyQualifiedTypeName(m.Member.Type)} {m.Member.Name} {{ {getter} {setter} }}";
                 });
         }
 
@@ -295,6 +303,22 @@ namespace MocksSourceGenerator
                 case Accessibility.Internal: return isSameAssembly ? "internal" : "public";
                 default: return string.Empty;
             }
+        }
+
+        private static string GetPropertyAccessorAccessibility(string mainAccessibility, IMethodSymbol? method, bool isSameAssembly)
+        {
+            if (method != null)
+            {
+                string accessibility = GetAccessibility(method, isSameAssembly);
+                if (accessibility == mainAccessibility)
+                {
+                    return string.Empty;
+                }
+
+                return accessibility;
+            }
+
+            return string.Empty;
         }
 
         private static void AddBaseTypesAndThis(IList<ITypeSymbol> result, ITypeSymbol? type)
